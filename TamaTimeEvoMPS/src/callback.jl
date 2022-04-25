@@ -126,7 +126,11 @@ function measure_localops!(cb::LocalMeasurementCallbackTama, ppo::Vector{opPos},
     i::Int)
     
     for o in ppo
-        m = dot(wf, noprime(op(sites(cb),o.op,o.pos)*wf))
+        if(o.op == "Norm")
+            m = dot(wf,wf)
+        else
+            m = dot(wf, noprime(op(sites(cb),o.op,o.pos)*wf))
+        end
         #print(real(m))
         #read!(pp)
         imag(m)>1e-8 && (@warn "encountered finite imaginary part when measuring $o")
@@ -161,6 +165,8 @@ function apply!(cb::LocalMeasurementCallback, psi; t, sweepend, sweepdir, bond, 
 end
 
 function apply!(cb::LocalMeasurementCallbackTama, psi; t, sweepend, sweepdir, bond, alg, kwargs...)
+    #if file handle is passed use it
+
     prev_t = length(measurement_ts(cb))>0 ? measurement_ts(cb)[end] : 0
 
     # perform measurements only at the end of a sweep (TEBD: for finishing
@@ -175,6 +181,7 @@ function apply!(cb::LocalMeasurementCallbackTama, psi; t, sweepend, sweepdir, bo
     if (t-prev_t≈callback_dt(cb) || t==prev_t) && sweepend && (bond % 2 ==1 || !(alg isa TEBDalg))
         if (t != prev_t || t==0)
             push!(measurement_ts(cb), t)
+            #Adds a zero entry to each list (associated to a dictionary entry)
             foreach(x->push!(x,zeros(1)), values(measurements(cb)) )
         end
 
@@ -191,7 +198,7 @@ function apply!(cb::LocalMeasurementCallbackTama, psi; t, sweepend, sweepdir, bo
         #we proceed with measurements at site b+1 if
         #the corresponding measurement list is not empty
         if (length(pippo)>0)  
-            print(pippo[1].op)  
+            #print(pippo[1].op)  
             wf = psi[bond]*psi[bond+1]
             measure_localops!(cb,pippo,wf,bond+1)
         end
@@ -212,6 +219,8 @@ function apply!(cb::LocalMeasurementCallbackTama, psi; t, sweepend, sweepdir, bo
         end
     end
 end
+
+
 checkdone!(cb::LocalMeasurementCallback,args...) = false
 checkdone!(cb::LocalMeasurementCallbackTama,args...) = false
 

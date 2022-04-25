@@ -36,16 +36,38 @@ https://doi.org/10.1103/PhysRevB.94.165116
 """
 function tdvp!(psi,H::MPO,dt,tf; kwargs...)
     nsteps = Int(tf/dt)
+    println(nsteps)
     cb = get(kwargs,:callback, NoTEvoCallback())
     hermitian = get(kwargs,:hermitian,true)
     exp_tol = get(kwargs,:exp_tol, 1e-14)
     krylovdim = get(kwargs,:krylovdim, 30 )
     maxiter = get(kwargs,:maxiter,100)
     normalize = get(kwargs,:normalize,true)
-
+    io_file = get(kwargs,:io_file,nothing)
     pbar = get(kwargs,:progress, true) ? Progress(nsteps, desc="Evolving state... ") : nothing
     τ = 1im*dt
+    store_psi0 = get(kwargs,:store_psi0,false)
     imag(τ) == 0 && (τ = real(τ))
+
+    #Smart sintax...
+    store_psi0 && (psi0 = psi);
+
+    #Open file
+    if(io_file != nothing)
+        io_handle = open(io_file,"a");
+
+        #Write column names to file
+        @printf(io_handle,"#%19s", "time")
+        res = measurements(cb)
+        for o in sort(collect(keys(res)))
+            @printf(io_handle,"%20s",o)
+        end
+        if(store_psi0)
+            @printf(io_handle,"%20s%20s","re_over","im_over")
+        end
+        @printf(io_handle,"\n")
+
+    end
 
     N = length(psi)
     orthogonalize!(psi,1)
@@ -88,10 +110,38 @@ function tdvp!(psi,H::MPO,dt,tf; kwargs...)
             end
 
         end
-        end
-        !isnothing(pbar) && ProgressMeter.next!(pbar, showvalues=[("t", dt*s),
-                                                                  ("dt step time", round(stime,digits=3)),
-                                                                  ("Max bond-dim", maxlinkdim(psi))])
-        checkdone!(cb) && break
+        
     end
+        
+    !isnothing(pbar) && ProgressMeter.next!(pbar, showvalues=[("t", dt*s),("dt step time", round(stime,digits=3)),("Max bond-dim", maxlinkdim(psi))]);
+
+    #if there is output file and the time is right...
+    if(!isnothing(io_file) && length(measurement_ts(cb))>0 )
+        
+        if ( dt*s ≈ measurement_ts(cb)[end])
+            #Appo variable
+            res = measurements(cb);
+            @printf(io_handle,"%20.15f",measurement_ts(cb)[end])
+            for o in sort(collect(keys(res)))
+                @printf(io_handle,"%20.15f",res[o][end][1])
+            end
+
+            if(store_psi0)
+                over = dot(psi0,psi);
+
+                @printf(io_handle,"%20s%20s",real(over),imag(over))
+            end
+
+            @printf(io_handle,"\n")
+            #flush(io_handle)
+        end
+    end
+        #registra gli ultimi valori registrati in cb(measurements) nel file, formattati
+
+    checkdone!(cb) && break
+    
+end
+if(!isnothing(io_file))
+    close(io_handle)
+end
 end
