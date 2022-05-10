@@ -95,7 +95,8 @@ function createMPO(sysenv, eps::Float64, delta::Float64, freqfile::String, coupf
       @show pmtx
    else
       #Identity permutation
-      pmtx=collect(1:MC_N)
+      pmtx=Permutation(collect(1:MC_N))
+      @show pmtx
    end
 
    #Lavoriamo qui
