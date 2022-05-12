@@ -1,7 +1,7 @@
 module TimeEvoMPS
 using ITensors
 using LinearAlgebra
-using MKL
+#using MKL
 using Printf
 using KrylovKit: exponentiate
 using ProgressMeter
